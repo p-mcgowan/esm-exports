@@ -57,17 +57,16 @@ export function parse(sourceText: string, options: ParseOptions = {}): Entry[] {
     const moduleBlockDeclarations: { [k: string]: Entry[] } = {};
     const entrySet = new EntrySet();
     let exportExpression: ts.Expression;
+    // let declareModule: string = '';
     walk(sourceFile);
     function walk(statement: ts.Node) {
         const node = statement;
-        if (node.pos >= moduleEnd!) {
-            module = options.module;
-            moduleName = undefined;
-            moduleEnd = undefined;
-        }
         switch (node.kind) { // eslint-disable-line tslint/config
-            case ts.SyntaxKind.ModuleDeclaration: { // 238
+            case ts.SyntaxKind.ModuleDeclaration: { // 244
                 // const isDeclare = Boolean(node.modifiers && node.modifiers.find(m => m.kind === ts.SyntaxKind.DeclareKeyword));
+                // if (isDeclare) {
+                //     declareModule = (node as any).name.text;
+                // }
                 moduleName = (node as any).name && (node as any).name.text;
                 if (moduleName) {
                     if (resolve.isCore(moduleName)) {
@@ -77,14 +76,17 @@ export function parse(sourceText: string, options: ParseOptions = {}): Entry[] {
                 moduleEnd = node.end;
             } break;
             // case ts.SyntaxKind.VariableStatement:
-            case ts.SyntaxKind.VariableDeclarationList: // 232
-            case ts.SyntaxKind.FunctionDeclaration: // 233
-            case ts.SyntaxKind.ClassDeclaration: // 234
-            case ts.SyntaxKind.InterfaceDeclaration: // 235
-            case ts.SyntaxKind.TypeAliasDeclaration: // 236
-            case ts.SyntaxKind.EnumDeclaration: // 237
-            case ts.SyntaxKind.VariableDeclaration: { // 231
-                if (node.parent!.kind === ts.SyntaxKind.ModuleBlock) {
+            case ts.SyntaxKind.VariableDeclarationList: // 238
+            case ts.SyntaxKind.FunctionDeclaration: // 239
+            case ts.SyntaxKind.ClassDeclaration: // 240
+            case ts.SyntaxKind.InterfaceDeclaration: // 241
+            case ts.SyntaxKind.TypeAliasDeclaration: // 242
+            case ts.SyntaxKind.EnumDeclaration: // 243
+            case ts.SyntaxKind.VariableDeclaration: { // 237
+                if (node.parent!.kind === ts.SyntaxKind.ModuleBlock) { // 245
+                    if (!moduleName) {
+                        moduleName = (node.parent.parent as any).name.text;
+                    }
                     if (moduleName) {
                         const entries = getDeclarations(node, { module, filepath });
                         if (!Array.isArray(moduleBlockDeclarations[moduleName])) {
@@ -94,7 +96,14 @@ export function parse(sourceText: string, options: ParseOptions = {}): Entry[] {
                     }
                 }
             } break;
-            case ts.SyntaxKind.ExportDeclaration: { // 249
+            case ts.SyntaxKind.ModuleBlock: { // 245
+                // console.log("node.getText()", node.getText());
+                console.log(node.parent);
+                // ((node as any).statements || []).forEach(st => {
+                //     console.log("st", st.name);
+                // });
+            } break;
+            case ts.SyntaxKind.ExportDeclaration: { // 255
                 const node = statement as ts.ExportDeclaration;
                 const names: Array<(string | undefined)> = [];
                 const exportAll = !(node.exportClause && node.exportClause.elements);
@@ -110,7 +119,7 @@ export function parse(sourceText: string, options: ParseOptions = {}): Entry[] {
                     entrySet.push(entry);
                 });
             } break;
-            case ts.SyntaxKind.ExportKeyword: { // 84
+            case ts.SyntaxKind.ExportKeyword: { // 85
                 const entries = getDeclarations(node.parent!, { module, filepath });
                 entries.forEach(entry => entrySet.push(entry));
             } break;
@@ -128,6 +137,13 @@ export function parse(sourceText: string, options: ParseOptions = {}): Entry[] {
                 }
             } break;
         }
+
+        if (node.pos >= moduleEnd!) {
+            module = options.module;
+            moduleName = undefined;
+            moduleEnd = undefined;
+        }
+
         if (node.kind === ts.SyntaxKind.SourceFile
             || node.kind === ts.SyntaxKind.ModuleDeclaration
             || (node.parent && node.parent.kind === ts.SyntaxKind.SourceFile)

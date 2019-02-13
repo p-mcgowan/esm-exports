@@ -111,6 +111,7 @@ export function module(id: string, options: ModuleOptions = {}): Promise<Entry[]
                     if (isTypes && item.slice(-5) === '.d.ts') {
                         const itemFile = resolvePath(dirpath, item);
                         return file(itemFile, options).then(items => {
+                            // items.forEach(item => item.module = name);
                             entries.push(...items);
                             if (--count === 0) {
                                 done(submodules);
